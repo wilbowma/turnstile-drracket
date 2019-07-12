@@ -17,18 +17,28 @@
       (interface (racket:text<%>)
         [build-editing-menu (->m (is-a?/c menu-item-container<%>) exact-nonnegative-integer? (is-a?/c racket:text<%>) void?)]
         [set-todos (->m any/c void?)]
-        [set-commands (->m any/c void?)]))
+        [set-commands (->m any/c void?)]
+        [set-types (->m any/c void?)]))
 
     (define hole-finding-text-mixin
       (mixin (racket:text<%> drracket:unit:definitions-text<%>) (hole-text<%>)
         (super-new)
 
-        (inherit get-start-position set-position get-active-canvas scroll-to-position get-tab
-                 position-line)
+        (inherit get-text get-forward-sexp get-start-position set-position
+                 get-active-canvas scroll-to-position get-tab position-line)
 
         (define (update-pos)
           (define pos (get-start-position))
           (define tab-info (hash-ref hole-info (get-tab) #f))
+          (define type-tab-info (hash-ref type-info (get-tab) #f))
+          ; update type
+          (match (and type-info
+                      type-tab-info
+                      (interval-map-ref type-tab-info pos #f))
+            [#f (void)]
+            [type
+             (send (send (get-tab) get-frame) set-current-type (get-text pos (get-forward-sexp pos)) type)])
+          ; update todos
           (match (and hole-info
                       tab-info
                       (interval-map-ref tab-info pos #f))
@@ -51,11 +61,23 @@
                          commands
                          '())))
 
+        (define type-info (make-hasheq))
+        (define (set-type-info! [types #f])
+          (define tab (get-tab))
+          (hash-set! type-info tab (and types (make-interval-map types)))
+          #;(update-type-info!))
+
         (define/public (update-hole-info!)
           (define tab (get-tab))
           (define frame (send tab get-frame))
           (let ([info (hash-ref hole-info tab #f)])
             (send frame set-todo-list (if info info (make-interval-map)))))
+
+        #;(define/public (update-type-info!)
+          (define tab (get-tab))
+          (define frame (send tab get-frame))
+          (let ([info (hash-ref type-info tab #f)])
+            (send frame set-current-type (if info info (make-interval-map)))))
 
         (define/public (set-todos gs)
           (set-hole-info!
@@ -67,6 +89,12 @@
 
         (define/public (set-commands all-cs)
           (set-command-info! all-cs))
+
+        (define/public (set-types all-types)
+          #;(for ([t all-types])
+            (match-define `((,start . ,end) . ,type) t)
+            (displayln (format "At ~a--~a, ~a~n" start end (syntax->datum type))))
+          (set-type-info! all-types))
 
         (define/augment (after-set-position)
           (update-pos))
@@ -161,6 +189,11 @@
           (for ([l (unbox current-todo-listeners)])
             (send l on-new-current-todo g)))
 
+        (define current-type-listeners (box null))
+        (define/public (set-current-type term type)
+          (for ([l (unbox current-type-listeners)])
+            (send l on-new-current-type term type)))
+
         (define/override (get-definitions/interactions-panel-parent)
           (define super-res (super get-definitions/interactions-panel-parent))
           (define new-panel
@@ -168,30 +201,45 @@
                    (super-new)
                    (inherit add-child delete-child get-percentages set-percentages)
                    (define todos-exist? (box #f))
+                   (define init-type-message (box #t))
+                   (define/public (on-new-current-type term type)
+                     (displayln type)
+                     (when (and type (unbox init-type-message))
+                       (displayln "Initializing type box")
+                       (add-child prop-panel)
+                       (set-percentages '(99/100 1/100))
+                       (set-box! init-type-message #f)))
+
                    (define/public (on-new-todo-list gs)
                      (if (dict-empty? gs)
                          ;; show -> hide
                          (when (unbox todos-exist?)
                            (set-box! panel-percents (get-percentages))
                            (set-box! todos-exist? #f)
-                           (delete-child show-hide))
+                           (send prop-panel delete-child show-hide))
                          ;; hide -> show
                          (unless (unbox todos-exist?)
-                           (add-child show-hide)
+                           (on-new-current-type #t #t)
+                           (send prop-panel add-child show-hide)
                            (set-percentages (unbox panel-percents))
                            (set-box! todos-exist? #t)))))
                  [parent super-res]))
+          (define prop-panel
+            (new panel:vertical-dragable%
+                 [parent new-panel]
+                 [stretchable-height #f]
+                 [style '(deleted)]))
           (define show-hide
             (new vertical-panel%
-                 [parent new-panel]
+                 [parent  prop-panel]
                  [stretchable-height #f]
                  [style '(deleted)]))
           (define panel-percents (box '(99/100 1/100)))
           (define (update-percents!)
             (if (unbox show-todos?)
-                (send new-panel set-percentages (unbox panel-percents))
-                (begin (set-box! panel-percents (send new-panel get-percentages))
-                       (send new-panel set-percentages '(99/100 1/100)))))
+                (send prop-panel set-percentages (unbox panel-percents))
+                (begin (set-box! panel-percents (send prop-panel get-percentages))
+                       (send prop-panel set-percentages '(99/100 1/100)))))
           (define (check-callback check-box evt)
             (define show? (send check-box get-value))
             (set-box! show-todos? show?)
@@ -202,6 +250,19 @@
                           (if (unbox show-todos?)
                               (list hole-holder)
                               '())))))
+          (define type-widget
+            (new (class message%
+                   (super-new)
+
+                   (inherit set-label)
+
+                   (define/public (on-new-current-type term type)
+                     (displayln "Updating label")
+                     (set-label (format "Type: ~a : ~a" term type))))
+                   [parent prop-panel]
+                   [label "Type: "]
+                   [stretchable-height #f]))
+
           (define show-todos? (box #t))
           (define show-hide-widget
             (new check-box%
@@ -281,6 +342,7 @@
 
           (set-box! todo-list-listeners (list hole-list-box new-panel))
           (set-box! current-todo-listeners (list hole-list-box details))
+          (set-box! current-type-listeners (list new-panel type-widget))
 
           new-panel)
 
@@ -295,9 +357,10 @@
      expansion-handler.rkt
      'handle-expansion
      (λ (text info)
-       (match-define (list todos commands) info)
+       (match-define (list todos commands types) info)
        (send text set-todos todos)
-       (send text set-commands commands)))
+       (send text set-commands commands)
+       (send text set-types types)))
     (keymap:add-to-right-button-menu/before
      (let ([old (keymap:add-to-right-button-menu/before)])
        (λ (menu editor event)

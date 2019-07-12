@@ -2,7 +2,7 @@
 
 (provide build-todo-info handle-expansion)
 
-(require syntax/parse syntax/srcloc
+(require syntax/parse syntax/srcloc (for-template (only-in macrotypes/typecheck-core type->str))
          "syntax-info.rkt" "goal-info.rkt")
 
 ;; traverse fully expanded syntax and produce a list suitable for building
@@ -10,11 +10,14 @@
 (define (build-todo-info stx source)
   (define todo-info (make-hash))
   (define command-info (make-hash))
+  (define type-info (make-hash))
   (let loop ([stx stx])
     ;; this-todo is either #f or a located todo
     (define these-todos (detect-todos stx))
     ;; this-command is a list of located commands
     (define these-commands (detect-commands stx))
+    ;; this-type is a list of located types
+    (define these-types (detect-types stx))
 
     (for ([this-todo (in-list these-todos)])
       (when (equal? source (located-source this-todo))
@@ -43,11 +46,21 @@
                             [(member (located-value this-command) old) old]
                             [else (append old (list (located-value this-command)))]))
                     #f))
+
+    (for ([this-type (in-list these-types)]
+          #:when (equal? source (located-source this-type)))
+      (hash-update! type-info
+                    (source-location-loc (located-location this-type))
+                    (λ (old) (located-value this-type))
+                    #f))
+
     (when (syntax->list stx)
       (for ([sub-stx (in-syntax stx)])
         (loop sub-stx))))
   (list (build-pre-interval-map/todo todo-info)
-        (build-pre-interval-map/commands command-info)))
+        (build-pre-interval-map/commands command-info)
+        ; don't need ad different function for the type table
+        (build-pre-interval-map/commands type-info)))
 
 ;; Construct a list that is suitable input to make-interval-map
 (define (build-pre-interval-map/todo table)
@@ -131,6 +144,16 @@
                                           todos))])
         (map-location todoify ((add-location stx) todo)))))
 
+;; detect-type : (-> Syntax (Listof (Located Types)))
+;; The type for a syntax object is in the ': syntax property. It consists of a
+;; cons tree of syntax objects representing types, possibly located.
+(define (detect-types stx)
+  ; Should probably uniqify the types
+  (define types (syntax-property stx ':))
+  (define reflect-type type->str)
+  (if (false? types)
+      '()
+      (map (compose (add-location stx) reflect-type) (flatten* (perhaps-located? syntax?) types))))
 
 ;; detect-command : (-> Syntax (Listof (Located Command)))
 ;; The command or commands for a syntax object are in the 'editing-command syntax
