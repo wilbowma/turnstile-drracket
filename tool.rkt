@@ -32,12 +32,8 @@
           (define tab-info (hash-ref hole-info (get-tab) #f))
           (define type-tab-info (hash-ref type-info (get-tab) #f))
           ; update type
-          (match (and type-info
-                      type-tab-info
-                      (interval-map-ref type-tab-info pos #f))
-            [#f (void)]
-            [type
-             (send (send (get-tab) get-frame) set-current-type (get-text pos (get-forward-sexp pos)) type)])
+          (send (send (get-tab) get-frame) set-current-type (get-text pos (get-forward-sexp pos))
+                (and type-info type-tab-info (interval-map-ref type-tab-info pos #f)))
           ; update todos
           (match (and hole-info
                       tab-info
@@ -258,7 +254,9 @@
 
                    (define/public (on-new-current-type term type)
                      (displayln "Updating label")
-                     (set-label (format "Type: ~a : ~a" term type))))
+                     (if type
+                         (set-label (format "Type: ~a : ~a" term type))
+                         (set-label (format "Type: ~a has no type" term)))))
                    [parent prop-panel]
                    [label "Type: "]
                    [stretchable-height #f]))
