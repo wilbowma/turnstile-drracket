@@ -170,4 +170,3 @@
 ;; located-source : (-> (Located X) Any)
 (define (located-source lctd)
   (source-location-source (located-location lctd)))
-

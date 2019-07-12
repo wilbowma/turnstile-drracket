@@ -3,9 +3,9 @@
 @title{Todo List for DrRacket}
 @author{David Thrane Christiansen}
 
-@require[@for-label[racket todo-list syntax/srcloc]]
+@require[@for-label[racket turnstile-drracket syntax/srcloc]]
 @require[racket/runtime-path]
-@declare-exporting[todo-list]
+@declare-exporting[turnstile-drracket]
 
 Todo List is a DrRacket tool that displays a list of the unwritten parts of a program, as determined
 by the macros that implement those unwritten parts, as well as providing opportunities to write the

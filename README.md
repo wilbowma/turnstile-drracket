@@ -1,6 +1,14 @@
-To-Do List for Macros
+Turnstile Mode
 ==========================
 
+Based on and includes all features of https://github.com/david-christiansen/todo-list.
+
+When I'm better at DrRacket plugin hackery, I'll make this extend todo-list
+instead of replace it.
+
+Adds a feature to display the type of expression currently selected in the definitions area.
+
+<!--
 This Racket package contains a DrRacket tool that displays a list of the unwritten parts of a program, as determined by the macros that implement those unwritten parts, as well as providing opportunities to write the unfinished parts of the program with compiler support.
 
 In particular, when Check Syntax finds a syntax object during expansion with the `'todo` syntax property, then it considers that syntax object to be an incomplete program. After expansion, a panel pops up with a list of tasks to be completed. When it finds an object with the `'editing-command` property mapped to a description of the editing command, then the editing commands are provided in a DrRacket right-click menu.
@@ -26,3 +34,5 @@ I'm interested in feedback from authors of languages with holes on what kinds of
 ## Thanks
 
 The code that interacts with Check Syntax is based on [refactoring tool code from an LWC 2016 paper](https://github.com/dfeltey/lwc2016) that describes an implementation of a small Java-like language in Racket. I would like to thank Daniel Feltey, Spencer P. Florence, Tim Knutson, Vincent St-Amour, Ryan Culpepper, Matthew Flatt, Robby Findler, and Matthias Felleisen for their great demo of what is possible in Racket!
+
+-->
