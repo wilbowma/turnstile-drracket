@@ -256,7 +256,8 @@
                      (displayln "Updating label")
                      (if type
                          (set-label (format "Type: ~a : ~a" term type))
-                         (set-label (format "Type: ~a has no type" term)))))
+                         ; Can happen when a large chunk is selected, in which case we don't want to display
+                         (set-label (format "Type: selected has no type")))))
                    [parent prop-panel]
                    [label "Type: "]
                    [stretchable-height #f]))
