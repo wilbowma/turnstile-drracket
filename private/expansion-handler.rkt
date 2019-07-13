@@ -149,7 +149,7 @@
 ;; cons tree of syntax objects representing types, possibly located.
 (define (detect-types stx)
   ; Should probably uniqify the types
-  (define types (syntax-property stx ':))
+  (define types (or (syntax-property stx ':) (syntax-property stx '::)))
   (define reflect-type type->str)
   (if (false? types)
       '()
