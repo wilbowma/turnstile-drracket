@@ -34,8 +34,12 @@
           ; update type
           (printf "Getting type of position ~a~n" pos)
           (displayln type-tab-info)
-          (send (send (get-tab) get-frame) set-current-type (get-text pos (or (get-forward-sexp pos) pos))
-                (and type-info type-tab-info (interval-map-ref type-tab-info pos #f)))
+          (if (and type-info type-tab-info)
+              (begin
+                (let-values ([(start end type) (interval-map-ref/bounds type-tab-info pos #f)])
+                  (send (send (get-tab) get-frame) set-current-type (and start end (get-text start end)) type)))
+              (send (send (get-tab) get-frame) set-current-type #f #f))
+
           ; update todos
           (match (and hole-info
                       tab-info
