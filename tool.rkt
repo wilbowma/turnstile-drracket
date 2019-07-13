@@ -32,6 +32,8 @@
           (define tab-info (hash-ref hole-info (get-tab) #f))
           (define type-tab-info (hash-ref type-info (get-tab) #f))
           ; update type
+          (printf "Getting type of position ~a~n" pos)
+          (displayln type-tab-info)
           (send (send (get-tab) get-frame) set-current-type (get-text pos (or (get-forward-sexp pos) pos))
                 (and type-info type-tab-info (interval-map-ref type-tab-info pos #f)))
           ; update todos
