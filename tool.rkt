@@ -24,7 +24,7 @@
       (mixin (racket:text<%> drracket:unit:definitions-text<%>) (hole-text<%>)
         (super-new)
 
-        (inherit get-text get-forward-sexp get-start-position set-position
+        (inherit get-text get-backward-sexp get-forward-sexp get-start-position set-position
                  get-active-canvas scroll-to-position get-tab position-line)
 
         (define (update-pos)
@@ -34,11 +34,22 @@
           ; update type
           (printf "Getting type of position ~a~n" pos)
           (displayln type-tab-info)
+          (define frame (send (get-tab) get-frame))
           (if (and type-info type-tab-info)
               (begin
+                ;; NB: Assuming sexp language.
+                ;; Get the s-expr the starts at this interval, unless this is
+                ;; a closing paren; then go forward 1 character and get the
+                ;; previous sexp.
                 (let-values ([(start end type) (interval-map-ref/bounds type-tab-info pos #f)])
-                  (send (send (get-tab) get-frame) set-current-type (and start end (get-text start end)) type)))
-              (send (send (get-tab) get-frame) set-current-type #f #f))
+                  (send frame set-current-type
+                        ; figure out expr
+                        (and start end
+                             (if (equal? (get-text start end) ")")
+                                 (get-text (get-backward-sexp (add1 start)) end)
+                                 (get-text start (get-forward-sexp start))))
+                        type)))
+              (send frame set-current-type #f #f))
 
           ; update todos
           (match (and hole-info
