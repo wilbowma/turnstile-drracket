@@ -114,7 +114,7 @@
 
 #f
 
-(? "meow")
+(? "meow" ())
 
 (define-typed-variable the-truth #t)
 
