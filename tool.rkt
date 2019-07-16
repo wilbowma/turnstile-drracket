@@ -207,6 +207,40 @@
           (for ([l (unbox current-type-listeners)])
             (send l on-new-current-type term type)))
 
+        #|
+        This tool adds the Mode Panel to the frame before the interactions area.
+        The mode panel will show/hide itself based on whether there are any
+        TODOs or types to display.
+        Within the mode panel, there are two other panels:
+        the display panel and the holes panel.
+        - The display panel will show the types display, if there are types, and
+          the show/hide widget if there are TODOs
+        - The holes panel is only displayed when the show/hide widget is checked.
+
+        The mode panel is vertically dragable.
+
+        Both the types widget and show hide widget are actually in holders to
+        get alignment right.
+        |--------------------------|
+        |                          |
+        |        def area          |
+        |                          |
+        |--------------------------|
+        |                          |
+        |        int area          |
+        |                          |
+        |--------------------------|
+        ||       Mode panel       ||
+        |||----------------------|||
+        |||     display-panel    |||
+        ||| Types           shw  |||
+        |||----------------------|||
+        ||                        ||
+        |||----------------------|||
+        |||      holes display   |||
+        |||----------------------|||
+        |--------------------------|
+        |#
         (define/override (get-definitions/interactions-panel-parent)
           (define super-res (super get-definitions/interactions-panel-parent))
           (define new-panel
@@ -219,8 +253,9 @@
                      (displayln type)
                      (when (and type (unbox init-type-message))
                        (displayln "Initializing type box")
-                       (add-child prop-panel)
+                       (add-child mode-panel)
                        (set-percentages '(99/100 1/100))
+                       #;(send display-panel set-percentages '(99/100 1/100))
                        (set-box! init-type-message #f)))
 
                    (define/public (on-new-todo-list gs)
@@ -229,40 +264,50 @@
                          (when (unbox todos-exist?)
                            (set-box! panel-percents (get-percentages))
                            (set-box! todos-exist? #f)
-                           (send prop-panel delete-child show-hide))
+                           (send mode-panel delete-child holes-panel)
+                           (send display-panel delete-child sh-holder))
                          ;; hide -> show
                          (unless (unbox todos-exist?)
                            (on-new-current-type #t #t)
-                           (send prop-panel add-child show-hide)
+                           (send mode-panel add-child holes-panel)
+                           (send display-panel add-child sh-holder)
                            (set-percentages (unbox panel-percents))
                            (set-box! todos-exist? #t)))))
                  [parent super-res]))
-          (define prop-panel
+          (define mode-panel
             (new panel:vertical-dragable%
                  [parent new-panel]
                  [stretchable-height #f]
                  [style '(deleted)]))
-          (define show-hide
+          (define display-panel
+            (new horizontal-panel%
+                 [alignment '(center center)]
+                 [parent mode-panel]
+                 [stretchable-height #f]))
+          (define holes-panel
             (new vertical-panel%
-                 [parent  prop-panel]
+                 [parent  mode-panel]
                  [stretchable-height #f]
                  [style '(deleted)]))
           (define panel-percents (box '(99/100 1/100)))
           (define (update-percents!)
             (if (unbox show-todos?)
-                (send prop-panel set-percentages (unbox panel-percents))
-                (begin (set-box! panel-percents (send prop-panel get-percentages))
-                       (send prop-panel set-percentages '(99/100 1/100)))))
+                (send mode-panel set-percentages (unbox panel-percents))
+                (begin (set-box! panel-percents (send mode-panel get-percentages))
+                       (send mode-panel set-percentages '(99/100 1/100)))))
           (define (check-callback check-box evt)
             (define show? (send check-box get-value))
             (set-box! show-todos? show?)
             (update-percents!)
-            (send show-hide change-children
-                  (lambda (chs)
-                    (cons show-hide-widget
-                          (if (unbox show-todos?)
-                              (list hole-holder)
-                              '())))))
+            (if show?
+                (begin
+                  (send holes-panel add-child hole-holder))
+                (begin
+                  (send holes-panel delete-child hole-holder))))
+          (define type-holder
+            (new horizontal-panel%
+                 [parent display-panel]
+                 [alignment '(left center)]))
           (define type-widget
             (new (class message%
                    (super-new)
@@ -275,20 +320,27 @@
                          (set-label (format "Type: ~a : ~a" term type))
                          ; Can happen when a large chunk is selected, in which case we don't want to display
                          (set-label (format "Type: selected has no type")))))
-                   [parent prop-panel]
+                   [parent type-holder]
                    [label "Type: "]
+                   [auto-resize #t]
                    [stretchable-height #f]))
 
           (define show-todos? (box #t))
+          (define sh-holder
+            (new horizontal-panel%
+                 [parent display-panel]
+                 [alignment '(right center)]
+                 [style '(deleted)]))
+
           (define show-hide-widget
             (new check-box%
-                 [parent show-hide]
+                 [parent sh-holder]
                  [label "Show TODOs"]
                  [value (unbox show-todos?)]
                  [stretchable-height #f]
                  [callback check-callback]))
           (define hole-holder
-            (new panel:horizontal-dragable% [parent show-hide]))
+            (new panel:horizontal-dragable% [parent holes-panel]))
           (define (truncate-summary str)
             (if (> (string-length str) 200)
                 (string-append (substring str 0 196) "...")
