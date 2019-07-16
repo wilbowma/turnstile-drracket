@@ -82,7 +82,7 @@
      (syntax-parse (list t1 t2)
        [(~Hole _) #t]
        [(_ ~Hole) #t]
-       [_ ((old-relation) t1 t2)]))))
+       [_ (old-relation t1 t2)]))))
 
 (define-base-type Bool)
 (define-type-constructor -> #:arity > 0)
