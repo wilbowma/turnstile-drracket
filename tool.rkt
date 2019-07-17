@@ -46,8 +46,10 @@
                         ; figure out expr
                         (and start end
                              (if (equal? (get-text start end) ")")
-                                 (get-text (get-backward-sexp (add1 start)) end)
-                                 (get-text start (get-forward-sexp start))))
+                                 (and (get-backward-sexp (add1 start))
+                                      (get-text (get-backward-sexp (add1 start)) end))
+                                 (and (get-forward-sexp start)
+                                      (get-text start (get-forward-sexp start)))))
                         type)))
               (send frame set-current-type #f #f))
 
