@@ -36,14 +36,13 @@
     (eq? NON-MACRO (syntax-local-value id (λ () NON-MACRO)))))
 
 (begin-for-syntax
-  (define (env-to-string ids type)
-    (format
-     "~a--------------~n~a"
-     (for/fold ([str ""])
-               ([id ids])
-       (format "~a~a : ~a~n" str (syntax->datum id)
-               (type->str (typeof (local-expand id 'expression '())))))
-     (type->str type))))
+  (define (env-to-string ids goal-type)
+    (let* ([env (for/fold ([str ""])
+                          ([id ids])
+                  (format "~a~a : ~a~n" str (syntax->datum id)
+                          (type->str (typeof (local-expand id 'expression '())))))]
+           [hyphens (apply string-append (build-list (max (string-length env) 5) (lambda _ "-")))])
+      (format "~a~a~n~a" env hyphens (type->str goal-type)))))
 
 (begin-for-syntax
   (struct todo-item (full summary) #:prefab)
@@ -58,32 +57,39 @@
    ;; are preserved.
    ;; Don't try passing them through macro expansion.
    'todo (todo-item
-          (format "~a~a" (env-to-string (syntax-find-local-variables context) type) full)
+          (format
+           "~a~a"
+           ;; env then full message from of todo
+           (env-to-string (syntax-find-local-variables context) type)
+           ;; if full message empty, leave it; else, typeset 2 lines after env.
+           (if (not (equal? "" full))
+               (format "~n~n~a" full)
+               ""))
           msg)))
 
 (define-typed-syntax ?
   ;; TODO: allow user to specify vars to hide/show
   ;; Something like require/provide specs?
-  [(_ msg:str #;() #;(spec:env-spec ...)) >>
-   ---------------------
-   [⊢ #,(let ([msg (syntax-e (attribute msg))])
-          (make-todo this-syntax msg msg #'Hole)) => Hole]]
   [(_ msg:str #;() #;(spec:env-spec ...)) <= A >>
    ---------------------
    [⊢ #,(let ([msg (syntax-e (attribute msg))])
-          (make-todo this-syntax msg msg #'A))]]
+          (make-todo this-syntax "" msg #'A))]]
+  [(_ msg:str #;() #;(spec:env-spec ...)) >>
+   ---------------------
+   [⊢ #,(let ([msg (syntax-e (attribute msg))])
+          (make-todo this-syntax "" msg #'Hole)) => Hole]]
   ;; TODO: This approach causes problems with source locations or debug info,
   ;; which breaks the syntax-find-local-variables
   #;[(_ msg:str) >>
    -------------------
    [>>> #,(quasisyntax/loc this-syntax
             (? msg ()))]]
+  [_:id <= A:type >>
+   ---------------------
+   [⊢ #,(make-todo this-syntax "" "" #'A)]]
   [_:id >>
    ---------------------
-   [⊢ #,(make-todo this-syntax "" "" #'Hole) => Hole]]
-  [_:id <= A >>
-   ---------------------
-   [⊢ #,(make-todo this-syntax "" "" #'A)]])
+   [⊢ #,(make-todo this-syntax "" "" #'Hole) => Hole]])
 
 (define-typed-syntax (ann e (~datum :) τ) ≫
   [⊢ e ≫ e- ⇐ τ]
@@ -130,7 +136,7 @@
 
 #f
 
-#;(? "meow")
+(? "meow")
 
 (define-typed-variable the-truth #t)
 
