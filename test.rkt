@@ -70,6 +70,9 @@
            #'(#%app- error- (#%datum- . msg))
            'todo (todo-item (env-to-string #'(env ...)) (syntax->datum #'msg)))) => Hole]]
   ;; TODO: This disrupts the local environment and the above local-expand trick doesn't work.
+  [(_ msg:str) >>
+   -------------------
+   [⊢ (? msg ()) => Hole]]
   [_:id >>
    ---------------------
    [⊢ (? "Incomplete program; cannot run." ()) => Hole]])
@@ -118,6 +121,6 @@
 
 (define-typed-variable the-truth #t)
 
-((λ ([x : Bool]) (? "meow" (x the-truth))) the-truth)
+((λ ([x : Bool]) (? "meow")) the-truth)
 
 #f
