@@ -68,6 +68,10 @@
    ---------------------
    [⊢ #,(let ([msg (syntax-e (attribute msg))])
           (make-todo this-syntax msg msg #'Hole)) => Hole]]
+  [(_ msg:str #;() #;(spec:env-spec ...)) <= A >>
+   ---------------------
+   [⊢ #,(let ([msg (syntax-e (attribute msg))])
+          (make-todo this-syntax msg msg #'A))]]
   ;; TODO: This approach causes problems with source locations or debug info,
   ;; which breaks the syntax-find-local-variables
   #;[(_ msg:str) >>
@@ -76,7 +80,15 @@
             (? msg ()))]]
   [_:id >>
    ---------------------
-   [⊢ #,(make-todo this-syntax "" "" #'Hole) => Hole]])
+   [⊢ #,(make-todo this-syntax "" "" #'Hole) => Hole]]
+  [_:id <= A >>
+   ---------------------
+   [⊢ #,(make-todo this-syntax "" "" #'A)]])
+
+(define-typed-syntax (ann e (~datum :) τ) ≫
+  [⊢ e ≫ e- ⇐ τ]
+  --------
+  [⊢ e- ⇒ τ])
 
 (begin-for-syntax
   (define old-relation (current-typecheck-relation))
@@ -123,3 +135,5 @@
 (define-typed-variable the-truth #t)
 
 ((λ ([x : Bool]) ?) the-truth)
+
+((λ ([x : Bool]) (ann ? : Bool)) #f)
