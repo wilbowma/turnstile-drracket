@@ -1,81 +1,82 @@
 #lang turnstile
 (require (only-in turnstile/lang [⇒ =>] [⇐ <=] [≫ >>] [⊢ /-] [≻ >>>]))
-(require (only-in racket/base [error error-] define-namespace-anchor))
-
+(require (only-in racket/base [error error-]))
+(require (for-syntax pretty-format))
 (define-base-type Hole)
 
+;; copy/paste from debug
 (begin-for-syntax
-  (define-namespace-anchor a)
-  ;; A symbol 'x represents a typed identifier if:
-  ;; - 'x is in the current namespace symbol table
-  ;; - (datum->syntax stx 'x) is an id-transforer, where stx is syntax from the current context
-  ;; - (local-expand (datum->syntax stx 'x)) gives back a syntax object with a ': property
-  (define (identifier-typed? stx sym)
-    (and
-     (with-handlers ([values (lambda _ #f)])
-       #;(namespace-variable-value sym)
-       (or
-        #;(syntax-local-value (namespace-symbol->identifier sym))
-        #;(eq? sym 'x)
-        #;(syntax-property (namespace-symbol->identifier sym) ':)
-        #;(syntax-property (local-expand (datum->syntax stx sym) 'expression '()) ':)
-        (syntax-property (local-expand (namespace-symbol->identifier sym) 'expression '()) ':)))))
+  ;; syntax-find-local-variables : Syntax -> (Listof Id)
+  (define (syntax-find-local-variables stx)
+    (define debug-info (syntax-debug-info stx (syntax-local-phase-level) #t))
+    (unless (hash-has-key? debug-info 'bindings)
+      (pretty-eprintf
+       (string-append
+        "warning: debug-repl cannot find the local bindings\n"
+        "  debug-info: ~v\n")
+       debug-info))
+    (define context (hash-ref debug-info 'context))
+    (define bindings (hash-ref debug-info 'bindings '()))
+    (remove-duplicates
+     (for/list ([binding (in-list bindings)]
+                #:when (hash-has-key? binding 'local)
+                ; TODO: Turnstile does too much scope manipulation for the simple thing to work.
+                #;#:when #;(context-subset? (hash-ref binding 'context) context))
+       (datum->syntax stx (hash-ref binding 'name) stx))
+     bound-identifier=?))
 
-  (define (namespace-mapped-typed-symbols stx [ns (current-namespace)])
-    (filter (curry identifier-typed? stx)
-            (namespace-mapped-symbols ns)))
+  ;; context-subset? : Context Context -> Boolean
+  (define (context-subset? a b)
+    ;; TODO: use an actual set-of-scopes subset function
+    (list-prefix? a b))
 
-  ;; namespace doesn't actually give all mapped symbols (particularly those in
-  ;; an internal definition context?) so ... let's brute force it.
-  #;(require srfi/14)
-  #;(define (all-symbols-of-length n)
-    (define alpha-set (map ~a (char-set->list char-set:full)))
-    ;; at 1, the list of all symbols in the alpha-set
-    ;; at 2, append to the recursion: for each element of the recursion, map
-    ;; concat onto each element of the recursion to
-    (map string->symbol
-         (for/fold ([ls alpha-set])
-                   ([i (in-range 1 n)])
-           (cons
-            (flatten
-            (for/list ([e ls])
-             (for/list ([a alpha-set])
-               (string-append a e))))
-            ls))))
-  #;(define (current-mapped-symbols [n 10])
-    (for/fold ([ls '()])
-              ([i n])
-      (append ls (all-symbols-of-length i))))
-
-  #;(displayln (all-symbols-of-length 1))
-
-  (define (env-to-string ids)
-    (for/fold ([str ""])
-              ([id (syntax-e ids)])
-      (format "~a~a : ~a~n" str (syntax->datum id)
-              (type->str (typeof (local-expand id 'expression '())) #;(syntax-property (local-expand id 'expression '()) ':))))))
+  ;; non-macro-id? : Id -> Boolean
+  (define NON-MACRO (gensym 'NON-MACRO))
+  (define (non-macro-id? id)
+    (eq? NON-MACRO (syntax-local-value id (λ () NON-MACRO)))))
 
 (begin-for-syntax
-  (struct todo-item (full summary) #:prefab))
+  (define (env-to-string ids type)
+    (format
+     "~a--------------~n~a"
+     (for/fold ([str ""])
+               ([id ids])
+       (format "~a~a : ~a~n" str (syntax->datum id)
+               (type->str (typeof (local-expand id 'expression '())))))
+     (type->str type))))
+
+(begin-for-syntax
+  (struct todo-item (full summary) #:prefab)
+  #;(define-syntax-class env-spec
+    (pattern ((~literal :all)))))
+
+(define-for-syntax (make-todo context full msg type)
+  (syntax-property
+   #`(#%app- error- (#%datum- . #,msg))
+   ;; NB: The syntax-find-local-variables call must happen in such a way
+   ;; that the source locations and other properties on those variables
+   ;; are preserved.
+   ;; Don't try passing them through macro expansion.
+   'todo (todo-item
+          (format "~a~a" (env-to-string (syntax-find-local-variables context) type) full)
+          msg)))
+
 (define-typed-syntax ?
-  ;; Must explicitly list names from the environment that you wish to see as
-  ;; part of the hole, for now.
-  ;; Default should find all lexical variables, but need to figure out how to
-  ;; reflect on those...
-  [(_ msg:str (env:id ...)) >>
+  ;; TODO: allow user to specify vars to hide/show
+  ;; Something like require/provide specs?
+  [(_ msg:str #;() #;(spec:env-spec ...)) >>
    ---------------------
-   [⊢ #,(begin
-          #;(displayln (namespace-mapped-typed-symbols this-syntax))
-          (syntax-property
-           #'(#%app- error- (#%datum- . msg))
-           'todo (todo-item (env-to-string #'(env ...)) (syntax->datum #'msg)))) => Hole]]
-  ;; TODO: This disrupts the local environment and the above local-expand trick doesn't work.
-  [(_ msg:str) >>
+   [⊢ #,(let ([msg (syntax-e (attribute msg))])
+          (make-todo this-syntax msg msg #'Hole)) => Hole]]
+  ;; TODO: This approach causes problems with source locations or debug info,
+  ;; which breaks the syntax-find-local-variables
+  #;[(_ msg:str) >>
    -------------------
-   [⊢ (? msg ()) => Hole]]
+   [>>> #,(quasisyntax/loc this-syntax
+            (? msg ()))]]
   [_:id >>
    ---------------------
-   [⊢ (? "Incomplete program; cannot run." ()) => Hole]])
+   [⊢ #,(make-todo this-syntax "" "" #'Hole) => Hole]])
 
 (begin-for-syntax
   (define old-relation (current-typecheck-relation))
@@ -117,10 +118,8 @@
 
 #f
 
-(? "meow" ())
+#;(? "meow")
 
 (define-typed-variable the-truth #t)
 
-((λ ([x : Bool]) (? "meow")) the-truth)
-
-#f
+((λ ([x : Bool]) ?) the-truth)
