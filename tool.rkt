@@ -31,9 +31,8 @@
           (define pos (get-start-position))
           (define tab-info (hash-ref hole-info (get-tab) #f))
           (define type-tab-info (hash-ref type-info (get-tab) #f))
-          ; update type
-          (printf "Getting type of position ~a~n" pos)
-          (displayln type-tab-info)
+
+          ; update hover message (type)
           (define frame (send (get-tab) get-frame))
           (if (and type-info type-tab-info)
               (begin
@@ -106,9 +105,6 @@
           (set-command-info! all-cs))
 
         (define/public (set-types all-types)
-          #;(for ([t all-types])
-            (match-define `((,start . ,end) . ,type) t)
-            (displayln (format "At ~a--~a, ~a~n" start end (syntax->datum type))))
           (set-type-info! all-types))
 
         (define/augment (after-set-position)
@@ -252,9 +248,7 @@
                    (define todos-exist? (box #f))
                    (define init-type-message (box #t))
                    (define/public (on-new-current-type term type)
-                     (displayln type)
                      (when (and type (unbox init-type-message))
-                       (displayln "Initializing type box")
                        (add-child mode-panel)
                        (set-percentages '(99/100 1/100))
                        #;(send display-panel set-percentages '(99/100 1/100))
@@ -317,7 +311,6 @@
                    (inherit set-label)
 
                    (define/public (on-new-current-type term type)
-                     (displayln "Updating label")
                      (if type
                          (set-label (format "Type: ~a : ~a" term type))
                          ; Can happen when a large chunk is selected, in which case we don't want to display
