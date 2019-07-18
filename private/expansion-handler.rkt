@@ -2,7 +2,8 @@
 
 (provide build-todo-info handle-expansion)
 
-(require syntax/parse syntax/srcloc (for-template (only-in macrotypes/typecheck-core type->str))
+(require syntax/parse syntax/srcloc
+         (for-template (only-in macrotypes/typecheck-core type->str typeof))
          "syntax-info.rkt" "goal-info.rkt")
 
 ;; traverse fully expanded syntax and produce a list suitable for building
@@ -148,12 +149,10 @@
 ;; The type for a syntax object is in the ': syntax property. It consists of a
 ;; cons tree of syntax objects representing types, possibly located.
 (define (detect-types stx)
-  ; Should probably uniqify the types
-  (define types (or (syntax-property stx ':) (syntax-property stx '::)))
-  (define reflect-type type->str)
+  (define types (typeof stx))
   (if (false? types)
       '()
-      (map (compose (add-location stx) reflect-type) (flatten* (perhaps-located? syntax?) types))))
+      (map (compose (add-location stx) type->str) (flatten* (perhaps-located? syntax?) types))))
 
 ;; detect-command : (-> Syntax (Listof (Located Command)))
 ;; The command or commands for a syntax object are in the 'editing-command syntax
