@@ -34,23 +34,38 @@
 
           ; update hover message (type)
           (define frame (send (get-tab) get-frame))
-          (if (and type-info type-tab-info)
-              (begin
-                ;; NB: Assuming sexp language.
-                ;; Get the s-expr the starts at this interval, unless this is
-                ;; a closing paren; then go forward 1 character and get the
-                ;; previous sexp.
-                (let-values ([(start end type) (interval-map-ref/bounds type-tab-info pos #f)])
-                  (send frame set-current-type
-                        ; figure out expr
-                        (and start end
-                             (if (equal? (get-text start end) ")")
-                                 (and (get-backward-sexp (add1 start))
-                                      (get-text (get-backward-sexp (add1 start)) end))
-                                 (and (get-forward-sexp start)
-                                      (get-text start (get-forward-sexp start)))))
-                        type)))
-              (send frame set-current-type #f #f))
+          ; default
+          (send frame set-current-type #f #f)
+
+          ;; We want to display the expression and its type.
+          ;; (NB: Do we?)
+          ;; NB: Assuming sexp language.
+
+          ;; Given a position, figure out the start position of the sexp you
+          ;; probably want.
+          ;; TODO: Surely this already exists, since DrRacket does a good job.
+          (define (whitespace? str)
+            (or (equal? " " str) (equal? "\n" str) (equal? "\t" str)))
+          (define (smart-get-sexp-pos pos)
+            (cond
+              ; if there's whitespace in front of us and an sexp immediately
+              ; behind us, that's probably that one we mean.
+              [(and (positive? pos) (whitespace? (get-text pos (add1 pos))))
+               (get-backward-sexp pos)]
+              ; if there's a ")" in front of us, we probably want the whole sexp
+              ; we're in
+              [(equal? (get-text pos (add1 pos)) ")")
+               (get-backward-sexp (add1 pos))]
+              [else
+               pos]))
+
+          (when (and type-info type-tab-info)
+            (define smartpos (smart-get-sexp-pos pos))
+            (define-values (start _ type) (interval-map-ref/bounds type-tab-info smartpos #f))
+            (send frame set-current-type
+                  ((lambda (s)
+                     (and s (string-trim s))) (and start (get-text start (get-forward-sexp start))))
+                  type))
 
           ; update todos
           (match (and hole-info
