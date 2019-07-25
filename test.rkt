@@ -2,6 +2,8 @@
 (require (only-in turnstile/lang [⇒ =>] [⇐ <=] [≫ >>] [⊢ /-] [≻ >>>]))
 (require "turnstile-ide.rkt")
 
+(try-to-init-hole)
+
 (define-base-type Bool)
 (define-type-constructor -> #:arity > 0)
 
