@@ -63,10 +63,9 @@
            (require syntax/parse)
            (current-hole-type #'Hole)
            (current-hole-type?
-            (lambda (x)
-              (syntax-parse x
-                [~Hole #t]
-                [_ #f])))))]))
+            (syntax-parser
+              [~Hole #t]
+              [_ #f]))))]))
 
 ;; copy/paste from debug
 (begin-for-syntax

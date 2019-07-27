@@ -6,10 +6,9 @@
 (begin-for-syntax
   (current-hole-type #'Hole)
   (current-hole-type?
-   (lambda (x)
-     (syntax-parse x
-       [~Hole #t]
-       [_ #f]))))
+   (syntax-parser
+     [~Hole #t]
+     [_ #f])))
 
 (define-datatype Nat : Type
   (z : Nat)
