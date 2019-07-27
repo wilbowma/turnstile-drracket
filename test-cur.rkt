@@ -2,7 +2,7 @@
 (require "turnstile-ide.rkt")
 
 ; Requires turnstile-core branch of cur, and cur branch of turnstile.
-(define-type Hole : Type)
+(define-type Hole : (Type 0))
 (begin-for-syntax
   (current-hole-type #'Hole)
   (current-hole-type?
@@ -20,3 +20,7 @@ z
 Nat
 
 ?
+
+(ann ? : Nat)
+
+(lambda (x : Nat) ?)
