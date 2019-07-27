@@ -114,7 +114,8 @@
   (require syntax/srcloc)
   (define (make-todo context full msg type)
     (syntax-property
-     #`(#%app- error- (#%datum- . #,(format "~a: Running incomplete program hit a hole with msg: ~a~n" (source-location->string context) msg)))
+     (quasisyntax/loc context
+       (error- (#%datum- . #,(format "~a: Running incomplete program hit a hole with msg: ~a~n" (source-location->string context) msg))))
      'todo
      (todo-item
       (format
