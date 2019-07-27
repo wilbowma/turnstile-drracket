@@ -11,7 +11,8 @@
 (define deps '("base"
                "data-lib"
                "drracket-plugin-lib"
-               "gui-lib"))
+               "gui-lib"
+               ("turnstile-lib" #:version "0.4.10")))
 (define build-deps '("scribble-lib" "racket-doc"))
 
 (define scribblings '(("scribblings/todo-list.scrbl" ())))
