@@ -22,4 +22,6 @@ Nat
 
 (ann ? : Nat)
 
-(lambda (x : Nat) ?)
+;(lambda (x : ?) ?)
+
+((lambda (A : (Type 0)) (lambda (x : A) ?)) ?)
